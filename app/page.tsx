@@ -7,9 +7,14 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   
-  // Case Study Horizontal Scroll Logic
+  // Case Study Scroll Lock Logic (downward only)
   const caseStudyRef = useRef<HTMLElement>(null);
-  const [slideIndex, setSlideIndex] = useState(0); // 0 to (caseStudies.length - 1), can be float for smooth transitions
+  const [slideIndex, setSlideIndex] = useState(0); // 0, 1, or 2 (discrete steps)
+  const [isScrollLocked, setIsScrollLocked] = useState(false);
+  const scrollLockPosition = useRef<number>(0);
+  const lastScrollY = useRef<number>(0);
+  const scrollCooldown = 400; // ms between scroll events
+  const lastScrollTime = useRef<number>(0);
 
   const caseStudies = [
     {
@@ -35,53 +40,118 @@ export default function Home() {
     }
   ];
 
-  // Scroll-driven horizontal animation for case studies
+  // Scroll lock for case studies (downward scrolling only)
   useEffect(() => {
     const handleScroll = () => {
       requestAnimationFrame(() => {
         const currentScroll = window.scrollY;
+        const scrollDirection = currentScroll > lastScrollY.current ? 'down' : 'up';
+        lastScrollY.current = currentScroll;
         setScrollY(currentScroll);
 
         if (!caseStudyRef.current) return;
 
         const rect = caseStudyRef.current.getBoundingClientRect();
         const viewportHeight = window.innerHeight;
-        const sectionHeight = rect.height;
         
-        // Calculate scroll progress through the section
-        // When section top reaches viewport top, we start tracking
-        if (rect.top <= 0 && rect.bottom >= 0) {
-          // How far we've scrolled into the section
-          const scrollDistance = -rect.top;
-          // Total scrollable distance (section height - viewport height)
-          const scrollableDistance = sectionHeight - viewportHeight;
-          
-          // Calculate progress (0 to 1)
-          const progress = Math.max(0, Math.min(1, scrollDistance / scrollableDistance));
-          
-          // Map progress to slide index (0 to caseStudies.length - 1)
-          // Use smooth interpolation for better UX
-          const targetIndex = progress * (caseStudies.length - 1);
-          setSlideIndex(targetIndex);
-        } else if (rect.top > 0) {
-          // Before section - show first slide
-          setSlideIndex(0);
-        } else if (rect.bottom < 0) {
-          // Past section - show last slide
-          setSlideIndex(caseStudies.length - 1);
+        // Check if section is in viewport
+        const isSectionActive = rect.top <= 0 && rect.bottom >= viewportHeight * 0.5;
+
+        // Lock scrolling when entering section and scrolling down
+        if (isSectionActive && !isScrollLocked && scrollDirection === 'down') {
+          setIsScrollLocked(true);
+          scrollLockPosition.current = window.scrollY;
+          document.body.style.overflow = 'hidden';
+          document.body.style.position = 'fixed';
+          document.body.style.width = '100%';
+          document.body.style.top = `-${scrollLockPosition.current}px`;
+        }
+        
+        // Unlock if scrolling up (always allow scrolling up)
+        if (isScrollLocked && scrollDirection === 'up') {
+          setIsScrollLocked(false);
+          const savedScroll = scrollLockPosition.current;
+          document.body.style.overflow = '';
+          document.body.style.position = '';
+          document.body.style.width = '';
+          document.body.style.top = '';
+          window.scrollTo(0, savedScroll);
         }
       });
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     
-    // Initial calculation
-    handleScroll();
-    
     return () => {
       window.removeEventListener('scroll', handleScroll);
+      if (isScrollLocked) {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.body.style.top = '';
+      }
     };
-  }, [caseStudies.length]);
+  }, [isScrollLocked]);
+
+  // Handle wheel events for step-by-step case study navigation
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (!isScrollLocked || !caseStudyRef.current) return;
+
+      const rect = caseStudyRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const isSectionActive = rect.top <= 0 && rect.bottom >= viewportHeight * 0.5;
+
+      if (!isSectionActive) return;
+
+      // Only lock on downward scroll
+      if (e.deltaY > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const now = Date.now();
+        if (now - lastScrollTime.current < scrollCooldown) {
+          return;
+        }
+        lastScrollTime.current = now;
+
+        // Advance to next case study
+        setSlideIndex((prev) => {
+          const next = Math.min(prev + 1, caseStudies.length - 1);
+          
+          // If we've reached the last slide, unlock scrolling
+          if (next === caseStudies.length - 1 && prev === caseStudies.length - 1) {
+            setTimeout(() => {
+              setIsScrollLocked(false);
+              document.body.style.overflow = '';
+              document.body.style.position = '';
+              document.body.style.width = '';
+              document.body.style.top = '';
+              // Allow page to continue scrolling down
+              window.scrollBy(0, 10);
+            }, 200);
+          }
+          return next;
+        });
+      } else {
+        // Scrolling up - unlock and allow normal scroll
+        setIsScrollLocked(false);
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.body.style.top = '';
+        // Go back to previous case study if not at first
+        setSlideIndex((prev) => Math.max(prev - 1, 0));
+      }
+    };
+
+    if (isScrollLocked) {
+      window.addEventListener('wheel', handleWheel, { passive: false });
+      return () => {
+        window.removeEventListener('wheel', handleWheel);
+      };
+    }
+  }, [isScrollLocked, caseStudies.length]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-[#EBE9E4] font-sans selection:bg-[#D8C6A5] selection:text-[#080808] overflow-x-hidden">
@@ -241,7 +311,7 @@ export default function Home() {
         </section>
 
         {/* Horizontal Scroll Case Studies Section */}
-        <section id="case-studies" ref={caseStudyRef} className="relative" style={{ height: '300vh' }}>
+        <section id="case-studies" ref={caseStudyRef} className="relative" style={{ height: '100vh' }}>
           <div className="sticky top-0 h-screen overflow-hidden flex flex-col pt-32">
              
              {/* Header */}
@@ -258,28 +328,22 @@ export default function Home() {
 
              {/* Navigation Indicators */}
              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-               {caseStudies.map((_, index) => {
-                 const isActive = Math.abs(slideIndex - index) < 0.5;
-                 const isNearActive = Math.abs(slideIndex - index) < 1;
-                 return (
-                   <div
-                     key={index}
-                     className={`h-2 rounded-full transition-all duration-300 ${
-                       isActive
-                         ? 'bg-[#D8C6A5] w-8'
-                         : isNearActive
-                         ? 'bg-[#666] w-4'
-                         : 'bg-[#333] w-2'
-                     }`}
-                     aria-label={`Case study ${index + 1}`}
-                   />
-                 );
-               })}
+               {caseStudies.map((_, index) => (
+                 <div
+                   key={index}
+                   className={`h-2 rounded-full transition-all duration-300 ${
+                     slideIndex === index
+                       ? 'bg-[#D8C6A5] w-8'
+                       : 'bg-[#333] w-2'
+                   }`}
+                   aria-label={`Case study ${index + 1}`}
+                 />
+               ))}
              </div>
 
              {/* Moving Track */}
              <div 
-               className="flex h-full items-center will-change-transform"
+               className="flex h-full items-center will-change-transform transition-transform duration-500 ease-in-out"
                style={{ 
                  transform: `translateX(-${slideIndex * 100}vw)` 
                }}
@@ -350,7 +414,7 @@ export default function Home() {
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="container mx-auto px-6 mb-32 pt-20">
+        <section id="pricing" className="container mx-auto px-6 mb-32 pt-20 -mt-20">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif italic text-[#D8C6A5] mb-4">Partnership Models</h2>
             <p className="text-[#666]">Select the velocity that fits your roadmap.</p>

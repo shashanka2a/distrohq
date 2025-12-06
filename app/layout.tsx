@@ -5,9 +5,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'DistroHQ - Effortless Content for the Ambitious',
-  description: 'We replace your fragmented freelancer network with a unified, aesthetic-driven content supply chain. Professional content production for SaaS, productivity tools, and ambitious brands.',
-  keywords: ['content production', 'SaaS content', 'video production', 'content marketing', 'social media content', 'LinkedIn carousels', 'product trailers'],
+  title: 'DistroHQ - Your Content. Distributed Right.',
+  description: 'DistroHQ is your headquarters for producing, packaging and distributing high-performance content, consistently. Professional content production, packaging, and distribution for SaaS, productivity tools, and ambitious brands.',
+  keywords: ['content production', 'content distribution', 'content packaging', 'SaaS content', 'video production', 'content marketing', 'social media content', 'LinkedIn carousels', 'product trailers', 'high-performance content'],
   authors: [{ name: 'DistroHQ' }],
   creator: 'DistroHQ',
   publisher: 'DistroHQ',
@@ -21,26 +21,26 @@ export const metadata: Metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'DistroHQ - Effortless Content for the Ambitious',
-    description: 'We replace your fragmented freelancer network with a unified, aesthetic-driven content supply chain.',
+    title: 'DistroHQ - Your Content. Distributed Right.',
+    description: 'DistroHQ is your headquarters for producing, packaging and distributing high-performance content, consistently.',
     url: 'https://distrohq.com',
     siteName: 'DistroHQ',
     locale: 'en_US',
     type: 'website',
     images: [
       {
-        url: '/og-image.jpg',
+        url: '/image.png',
         width: 1200,
         height: 630,
-        alt: 'DistroHQ - Content Production Studio',
+        alt: 'DistroHQ - Content Production and Distribution Studio',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'DistroHQ - Effortless Content for the Ambitious',
-    description: 'We replace your fragmented freelancer network with a unified, aesthetic-driven content supply chain.',
-    images: ['/og-image.jpg'],
+    title: 'DistroHQ - Your Content. Distributed Right.',
+    description: 'DistroHQ is your headquarters for producing, packaging and distributing high-performance content, consistently.',
+    images: ['/image.png'],
   },
   robots: {
     index: true,

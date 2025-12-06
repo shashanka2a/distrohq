@@ -288,13 +288,12 @@ export default function Home() {
             {/* Hero Text */}
             <div className="md:w-3/5 relative z-10">
               <h1 className="text-6xl md:text-8xl font-medium leading-[0.95] mb-8 tracking-tight text-[#EBE9E4]">
-                <span className="font-serif italic text-[#D8C6A5] pr-4">Effortless</span>
-                Content <br />
-                for the <span className="border-b-2 border-[#D8C6A5]/30 pb-2">Ambitions.</span>
+                Your Content. <br />
+                <span className="font-serif italic text-[#D8C6A5]">Distributed</span> <span className="border-b-2 border-[#D8C6A5]/30 pb-2">Right.</span>
               </h1>
               
               <p className="text-lg md:text-xl text-[#888] leading-relaxed max-w-xl font-light mb-10">
-                We replace your fragmented freelancer network with a unified, aesthetic-driven content supply chain.
+                DistroHQ is your headquarters for producing, packaging and distributing high-performance content, consistently.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">

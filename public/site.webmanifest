@@ -1,0 +1,21 @@
+{
+  "name": "DistroHQ",
+  "short_name": "DistroHQ",
+  "description": "Effortless Content for the Ambitious",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "sizes": "180x180",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#D8C6A5",
+  "background_color": "#050505",
+  "display": "standalone",
+  "start_url": "/"
+}

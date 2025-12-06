@@ -1,71 +1,205 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Linkedin, LayoutTemplate, ArrowRight, Star, Menu, X, Globe, MoveUpRight, Check, Zap, ArrowDown } from 'lucide-react';
+'use client';
 
-export default function DistroHQ() {
+import { useState, useEffect, useRef } from 'react';
+import { Linkedin, ArrowRight, Menu, X, Globe, MoveUpRight, Check, Zap } from 'lucide-react';
+
+export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   
-  // Case Study Scroll Logic
-  const caseStudyRef = useRef(null);
-  const [slideIndex, setSlideIndex] = useState(0); // 0 to (N-1) float
+  // Case Study Scroll Lock Logic
+  const caseStudyRef = useRef<HTMLElement>(null);
+  const [slideIndex, setSlideIndex] = useState(0); // 0, 1, or 2 (discrete steps)
+  const [isScrollLocked, setIsScrollLocked] = useState(false);
+  const scrollLockPosition = useRef<number>(0);
+  const lastWheelTime = useRef<number>(0);
+  const scrollCooldown = 500; // ms between scroll events
+  const accumulatedDelta = useRef<number>(0);
+  const scrollThreshold = 50; // pixels of scroll needed to trigger slide change
 
-  // Optimized Scroll Tracker
+  // Check if section is active and manage scroll lock
   useEffect(() => {
+    const checkSectionActive = () => {
+      if (!caseStudyRef.current) return;
+
+      const rect = caseStudyRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      // Section is active when its top reaches the viewport top
+      const isSectionActive = rect.top <= 0 && rect.bottom > viewportHeight * 0.5;
+
+      if (isSectionActive && !isScrollLocked) {
+        // Lock scrolling
+        setIsScrollLocked(true);
+        scrollLockPosition.current = window.scrollY;
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.top = `-${scrollLockPosition.current}px`;
+      } else if (!isSectionActive && isScrollLocked) {
+        // Only unlock if we've scrolled past the section
+        const hasScrolledPast = rect.bottom < viewportHeight * 0.3 || rect.top > viewportHeight;
+        if (hasScrolledPast) {
+          setIsScrollLocked(false);
+          const savedScroll = scrollLockPosition.current;
+          document.body.style.overflow = '';
+          document.body.style.position = '';
+          document.body.style.width = '';
+          document.body.style.top = '';
+          window.scrollTo(0, savedScroll);
+        }
+      }
+    };
+
     const handleScroll = () => {
       requestAnimationFrame(() => {
         const currentScroll = window.scrollY;
         setScrollY(currentScroll);
+        checkSectionActive();
+      });
+    };
 
-        // Calculate Case Study Horizontal Scroll Progress
-        if (caseStudyRef.current) {
-          const rect = caseStudyRef.current.getBoundingClientRect();
-          const sectionHeight = rect.height;
-          const viewportHeight = window.innerHeight;
-          
-          // Calculate how far we've scrolled into the section
-          const scrollDistanceFromTop = -rect.top;
-          const scrollableDistance = sectionHeight - viewportHeight;
-          
-          if (rect.top <= 0 && rect.bottom >= viewportHeight) {
-             const rawProgress = scrollDistanceFromTop / scrollableDistance;
-             
-             // --- MULTI-STOP LOCKING LOGIC ---
-             // We map the 0-1 scroll progress to distinct "Slide Indices" (0, 1, 2)
-             // This creates 'Hold' zones where the index stays integer, and 'Move' zones where it floats.
-             
-             let visualIndex = 0;
-             
-             // Define Ranges for 3 Slides
-             // 0.00 - 0.20: Hold Slide 1 (Index 0)
-             // 0.20 - 0.45: Move to Slide 2 (Index 0 -> 1)
-             // 0.45 - 0.70: Hold Slide 2 (Index 1)
-             // 0.70 - 0.90: Move to Slide 3 (Index 1 -> 2)
-             // 0.90 - 1.00: Hold Slide 3 (Index 2)
+    // Initial check
+    checkSectionActive();
+    
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (isScrollLocked) {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+        document.body.style.top = '';
+      }
+    };
+  }, [isScrollLocked]);
 
-             if (rawProgress < 0.20) {
-                 visualIndex = 0;
-             } else if (rawProgress < 0.45) {
-                 visualIndex = (rawProgress - 0.20) / (0.45 - 0.20);
-             } else if (rawProgress < 0.70) {
-                 visualIndex = 1;
-             } else if (rawProgress < 0.90) {
-                 visualIndex = 1 + (rawProgress - 0.70) / (0.90 - 0.70);
-             } else {
-                 visualIndex = 2;
-             }
-             
-             setSlideIndex(visualIndex);
-          } else if (rect.top > 0) {
-             setSlideIndex(0);
-          } else if (rect.bottom < viewportHeight) {
-             setSlideIndex(2);
+  // Handle wheel and touch events for case study navigation
+  useEffect(() => {
+    const navigateSlide = (direction: 'next' | 'prev') => {
+      setSlideIndex((prev) => {
+        if (direction === 'next') {
+          const next = Math.min(prev + 1, caseStudies.length - 1);
+          
+          // If we've reached the last slide, unlock scrolling after a delay
+          if (next === caseStudies.length - 1 && prev === caseStudies.length - 1) {
+            setTimeout(() => {
+              setIsScrollLocked(false);
+              document.body.style.overflow = '';
+              document.body.style.position = '';
+              document.body.style.width = '';
+              document.body.style.top = '';
+              // Allow page to continue scrolling
+              window.scrollBy(0, 10);
+            }, 300);
           }
+          return next;
+        } else {
+          const next = Math.max(prev - 1, 0);
+          
+          // If we're at the first slide and scrolling up, unlock
+          if (next === 0 && prev === 0) {
+            setTimeout(() => {
+              setIsScrollLocked(false);
+              document.body.style.overflow = '';
+              document.body.style.position = '';
+              document.body.style.width = '';
+              document.body.style.top = '';
+              // Scroll up to exit the section
+              window.scrollBy(0, -50);
+            }, 300);
+          }
+          return next;
         }
       });
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!isScrollLocked || !caseStudyRef.current) return;
+
+      const rect = caseStudyRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const isSectionActive = rect.top <= 0 && rect.bottom >= viewportHeight;
+
+      if (!isSectionActive) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const now = Date.now();
+      const timeSinceLastWheel = now - lastWheelTime.current;
+
+      // Reset accumulated delta if too much time has passed
+      if (timeSinceLastWheel > 1000) {
+        accumulatedDelta.current = 0;
+      }
+
+      accumulatedDelta.current += e.deltaY;
+      lastWheelTime.current = now;
+
+      // Only trigger slide change if threshold is met
+      if (Math.abs(accumulatedDelta.current) >= scrollThreshold) {
+        if (accumulatedDelta.current > 0) {
+          navigateSlide('next');
+        } else {
+          navigateSlide('prev');
+        }
+        accumulatedDelta.current = 0;
+      }
+    };
+
+    // Touch event handlers for mobile
+    let touchStartY = 0;
+    let touchEndY = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (!isScrollLocked) return;
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isScrollLocked || !caseStudyRef.current) return;
+
+      const rect = caseStudyRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      const isSectionActive = rect.top <= 0 && rect.bottom >= viewportHeight;
+
+      if (!isSectionActive) return;
+
+      e.preventDefault();
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!isScrollLocked) return;
+      touchEndY = e.changedTouches[0].clientY;
+      const swipeDistance = touchStartY - touchEndY;
+      const minSwipeDistance = 50;
+
+      if (Math.abs(swipeDistance) > minSwipeDistance) {
+        if (swipeDistance > 0) {
+          // Swiped up - next slide
+          navigateSlide('next');
+        } else {
+          // Swiped down - previous slide
+          navigateSlide('prev');
+        }
+      }
+    };
+
+    if (isScrollLocked) {
+      window.addEventListener('wheel', handleWheel, { passive: false });
+      window.addEventListener('touchstart', handleTouchStart, { passive: true });
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd, { passive: true });
+      
+      return () => {
+        window.removeEventListener('wheel', handleWheel);
+        window.removeEventListener('touchstart', handleTouchStart);
+        window.removeEventListener('touchmove', handleTouchMove);
+        window.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isScrollLocked, caseStudies.length]);
 
   const caseStudies = [
     {
@@ -115,9 +249,9 @@ export default function DistroHQ() {
           </div>
           
           <div className="hidden md:flex items-center gap-10 text-sm font-medium text-[#888]">
-            <a href="#" className="hover:text-[#D8C6A5] transition-colors">Services</a>
-            <a href="#" className="hover:text-[#D8C6A5] transition-colors">Curated Work</a>
-            <a href="#" className="hover:text-[#D8C6A5] transition-colors">Pricing</a>
+            <a href="#capabilities" className="hover:text-[#D8C6A5] transition-colors">Services</a>
+            <a href="#case-studies" className="hover:text-[#D8C6A5] transition-colors">Curated Work</a>
+            <a href="#pricing" className="hover:text-[#D8C6A5] transition-colors">Pricing</a>
             <button className="bg-[#D8C6A5] text-[#080808] px-6 py-2.5 rounded-sm font-semibold hover:bg-[#C4B291] transition-colors">
               Start Project
             </button>
@@ -126,6 +260,7 @@ export default function DistroHQ() {
            <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             className="p-2 hover:bg-[#D8C6A5]/10 rounded-full transition-colors md:hidden text-[#D8C6A5]"
+            aria-label="Toggle menu"
           >
             {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -136,9 +271,9 @@ export default function DistroHQ() {
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 bg-[#080808] flex items-center justify-center md:hidden">
           <div className="flex flex-col items-center gap-8 text-2xl font-serif italic text-[#D8C6A5]">
-            <a href="#" onClick={() => setIsMenuOpen(false)}>Services</a>
-            <a href="#" onClick={() => setIsMenuOpen(false)}>Curated Work</a>
-             <a href="#" onClick={() => setIsMenuOpen(false)}>Pricing</a>
+            <a href="#capabilities" onClick={() => setIsMenuOpen(false)}>Services</a>
+            <a href="#case-studies" onClick={() => setIsMenuOpen(false)}>Curated Work</a>
+             <a href="#pricing" onClick={() => setIsMenuOpen(false)}>Pricing</a>
             <button className="bg-[#D8C6A5] text-[#080808] px-8 py-3 rounded-sm font-sans font-bold not-italic mt-4">Start Project</button>
           </div>
         </div>
@@ -175,7 +310,7 @@ export default function DistroHQ() {
                {/* Glowing backing */}
                <div className="absolute inset-0 bg-[#D8C6A5]/10 blur-[60px] rounded-full transform scale-75"></div>
                
-               <svg width="400" height="340" viewBox="0 0 400 340" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 drop-shadow-2xl">
+               <svg width="400" height="340" viewBox="0 0 400 340" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 drop-shadow-2xl" aria-hidden="true">
                   {/* TV Housing */}
                   <rect x="2" y="2" width="396" height="300" rx="40" stroke="#333" strokeWidth="2" fill="#0A0A0A"/>
                   <rect x="15" y="15" width="370" height="274" rx="28" fill="#050505" stroke="#111" strokeWidth="2"/>
@@ -212,15 +347,15 @@ export default function DistroHQ() {
            <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#050505] to-transparent z-10"></div>
            <div className="flex gap-16 whitespace-nowrap text-sm font-bold tracking-[0.2em] uppercase text-[#444] group-hover:text-[#666] transition-colors duration-700">
               {[...Array(8)].map((_, i) => (
-                  <React.Fragment key={i}>
+                  <span key={i} className="inline-flex gap-4">
                       <span>Strategy</span> • <span>Production</span> • <span>Distribution</span> • <span>Growth</span> •
-                  </React.Fragment>
+                  </span>
               ))}
            </div>
         </div>
 
         {/* Services Grid */}
-        <section className="container mx-auto px-6 mb-40">
+        <section id="capabilities" className="container mx-auto px-6 mb-40">
            <div className="flex flex-col md:flex-row justify-between items-end mb-16 border-b border-[#222] pb-6">
             <h2 className="text-4xl md:text-5xl font-serif italic text-[#D8C6A5]">Capabilities</h2>
             <p className="text-[#666] mb-2 md:mb-0">Selected works & offerings</p>
@@ -248,9 +383,8 @@ export default function DistroHQ() {
           </div>
         </section>
 
-        {/* Horizontal Scroll Case Studies Section */}
-        {/* Height decreased to 350vh to reduce whitespace and speed up scrolling */}
-        <section ref={caseStudyRef} className="relative h-[350vh]">
+        {/* Horizontal Scroll Case Studies Section with Scroll Lock */}
+        <section id="case-studies" ref={caseStudyRef} className="relative" style={{ height: '100vh', minHeight: '100vh' }}>
           <div className="sticky top-0 h-screen overflow-hidden flex flex-col pt-32">
              
              {/* Header */}
@@ -265,11 +399,26 @@ export default function DistroHQ() {
                </div>
              </div>
 
+             {/* Navigation Indicators */}
+             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+               {caseStudies.map((_, index) => (
+                 <button
+                   key={index}
+                   onClick={() => setSlideIndex(index)}
+                   className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                     slideIndex === index
+                       ? 'bg-[#D8C6A5] w-8'
+                       : 'bg-[#333] hover:bg-[#555]'
+                   }`}
+                   aria-label={`Go to case study ${index + 1}`}
+                 />
+               ))}
+             </div>
+
              {/* Moving Track */}
              <div 
-               className="flex h-full items-center will-change-transform"
+               className="flex h-full items-center will-change-transform transition-transform duration-700 ease-in-out"
                style={{ 
-                 // We slide by 'slideIndex' * 100vw
                  transform: `translateX(-${slideIndex * 100}vw)` 
                }}
              >
@@ -339,7 +488,7 @@ export default function DistroHQ() {
         </section>
 
         {/* Pricing Section */}
-        <section className="container mx-auto px-6 mb-32 pt-20">
+        <section id="pricing" className="container mx-auto px-6 mb-32 pt-20">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif italic text-[#D8C6A5] mb-4">Partnership Models</h2>
             <p className="text-[#666]">Select the velocity that fits your roadmap.</p>
@@ -404,7 +553,7 @@ export default function DistroHQ() {
              <div>
                 <h2 className="text-6xl font-serif italic text-[#EBE9E4] mb-8">Ready to evolve?</h2>
                 <div className="flex flex-col gap-6">
-                   <a href="#" className="text-2xl text-[#666] hover:text-[#D8C6A5] transition-colors flex items-center gap-4 group">
+                   <a href="mailto:hello@distrohq.com" className="text-2xl text-[#666] hover:text-[#D8C6A5] transition-colors flex items-center gap-4 group">
                       <span className="w-2 h-2 rounded-full bg-[#333] group-hover:bg-[#D8C6A5] transition-colors"></span>
                       Book a discovery call
                    </a>
@@ -416,15 +565,15 @@ export default function DistroHQ() {
                    <div className="text-[#D8C6A5] font-serif text-2xl mb-2">DistroHQ</div>
                    <address className="text-[#666] not-italic mb-8">
                       San Francisco, CA<br/>
-                      hello@distrohq.com
+                      <a href="mailto:hello@distrohq.com" className="hover:text-[#D8C6A5] transition-colors">hello@distrohq.com</a>
                    </address>
                    <div className="flex gap-4">
-                      <div className="w-10 h-10 border border-[#333] hover:border-[#D8C6A5] rounded-full flex items-center justify-center text-[#666] hover:text-[#D8C6A5] transition-colors cursor-pointer">
+                      <a href="https://linkedin.com/company/distrohq" target="_blank" rel="noopener noreferrer" className="w-10 h-10 border border-[#333] hover:border-[#D8C6A5] rounded-full flex items-center justify-center text-[#666] hover:text-[#D8C6A5] transition-colors cursor-pointer" aria-label="LinkedIn">
                          <Linkedin size={16} />
-                      </div>
-                      <div className="w-10 h-10 border border-[#333] hover:border-[#D8C6A5] rounded-full flex items-center justify-center text-[#666] hover:text-[#D8C6A5] transition-colors cursor-pointer">
+                      </a>
+                      <a href="https://distrohq.com" target="_blank" rel="noopener noreferrer" className="w-10 h-10 border border-[#333] hover:border-[#D8C6A5] rounded-full flex items-center justify-center text-[#666] hover:text-[#D8C6A5] transition-colors cursor-pointer" aria-label="Website">
                          <Globe size={16} />
-                      </div>
+                      </a>
                    </div>
                 </div>
              </div>
@@ -433,8 +582,8 @@ export default function DistroHQ() {
           <div className="flex flex-col md:flex-row justify-between items-center py-8 border-t border-[#222] text-xs text-[#444] uppercase tracking-widest font-bold">
              <div>© 2025 DistroHQ Systems</div>
              <div className="flex gap-8 mt-4 md:mt-0">
-                <a href="#" className="hover:text-[#666]">Privacy</a>
-                <a href="#" className="hover:text-[#666]">Terms</a>
+                <a href="/privacy" className="hover:text-[#666]">Privacy</a>
+                <a href="/terms" className="hover:text-[#666]">Terms</a>
              </div>
           </div>
         </footer>
@@ -443,3 +592,4 @@ export default function DistroHQ() {
     </div>
   );
 }
+

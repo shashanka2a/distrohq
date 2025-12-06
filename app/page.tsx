@@ -17,6 +17,30 @@ export default function Home() {
   const accumulatedDelta = useRef<number>(0);
   const scrollThreshold = 50; // pixels of scroll needed to trigger slide change
 
+  const caseStudies = [
+    {
+      client: "Apex.com",
+      tag: "SaaS",
+      desc: "Redefining visual language for a Series-B SaaS, resulting in a 300% increase in inbound leads.",
+      stat: "+45k Followers",
+      color: "#D8C6A5"
+    },
+    {
+      client: "Linear",
+      tag: "Productivity",
+      desc: "Creating a cult-like following through minimalist, high-velocity product release trailers.",
+      stat: "2.5M Views",
+      color: "#A5B4D8"
+    },
+    {
+      client: "Raycast",
+      tag: "Tools",
+      desc: "Developer-focused storytelling that turned a launcher utility into a productivity lifestyle brand.",
+      stat: "12% Conv. Rate",
+      color: "#D8A5A5"
+    }
+  ];
+
   // Check if section is active and manage scroll lock
   useEffect(() => {
     const checkSectionActive = () => {
@@ -200,30 +224,6 @@ export default function Home() {
       };
     }
   }, [isScrollLocked, caseStudies.length]);
-
-  const caseStudies = [
-    {
-      client: "Apex.com",
-      tag: "SaaS",
-      desc: "Redefining visual language for a Series-B SaaS, resulting in a 300% increase in inbound leads.",
-      stat: "+45k Followers",
-      color: "#D8C6A5"
-    },
-    {
-      client: "Linear",
-      tag: "Productivity",
-      desc: "Creating a cult-like following through minimalist, high-velocity product release trailers.",
-      stat: "2.5M Views",
-      color: "#A5B4D8"
-    },
-    {
-      client: "Raycast",
-      tag: "Tools",
-      desc: "Developer-focused storytelling that turned a launcher utility into a productivity lifestyle brand.",
-      stat: "12% Conv. Rate",
-      color: "#D8A5A5"
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-[#050505] text-[#EBE9E4] font-sans selection:bg-[#D8C6A5] selection:text-[#080808] overflow-x-hidden">

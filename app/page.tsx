@@ -7,15 +7,9 @@ export default function Home() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   
-  // Case Study Scroll Lock Logic
+  // Case Study Horizontal Scroll Logic
   const caseStudyRef = useRef<HTMLElement>(null);
-  const [slideIndex, setSlideIndex] = useState(0); // 0, 1, or 2 (discrete steps)
-  const [isScrollLocked, setIsScrollLocked] = useState(false);
-  const scrollLockPosition = useRef<number>(0);
-  const lastWheelTime = useRef<number>(0);
-  const scrollCooldown = 500; // ms between scroll events
-  const accumulatedDelta = useRef<number>(0);
-  const scrollThreshold = 50; // pixels of scroll needed to trigger slide change
+  const [slideIndex, setSlideIndex] = useState(0); // 0 to (caseStudies.length - 1), can be float for smooth transitions
 
   const caseStudies = [
     {
@@ -41,189 +35,53 @@ export default function Home() {
     }
   ];
 
-  // Check if section is active and manage scroll lock
+  // Scroll-driven horizontal animation for case studies
   useEffect(() => {
-    const checkSectionActive = () => {
-      if (!caseStudyRef.current) return;
-
-      const rect = caseStudyRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      // Section is active when its top reaches the viewport top
-      const isSectionActive = rect.top <= 0 && rect.bottom > viewportHeight * 0.5;
-
-      if (isSectionActive && !isScrollLocked) {
-        // Lock scrolling
-        setIsScrollLocked(true);
-        scrollLockPosition.current = window.scrollY;
-        document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.top = `-${scrollLockPosition.current}px`;
-      } else if (!isSectionActive && isScrollLocked) {
-        // Only unlock if we've scrolled past the section
-        const hasScrolledPast = rect.bottom < viewportHeight * 0.3 || rect.top > viewportHeight;
-        if (hasScrolledPast) {
-          setIsScrollLocked(false);
-          const savedScroll = scrollLockPosition.current;
-          document.body.style.overflow = '';
-          document.body.style.position = '';
-          document.body.style.width = '';
-          document.body.style.top = '';
-          window.scrollTo(0, savedScroll);
-        }
-      }
-    };
-
     const handleScroll = () => {
       requestAnimationFrame(() => {
         const currentScroll = window.scrollY;
         setScrollY(currentScroll);
-        checkSectionActive();
+
+        if (!caseStudyRef.current) return;
+
+        const rect = caseStudyRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const sectionHeight = rect.height;
+        
+        // Calculate scroll progress through the section
+        // When section top reaches viewport top, we start tracking
+        if (rect.top <= 0 && rect.bottom >= 0) {
+          // How far we've scrolled into the section
+          const scrollDistance = -rect.top;
+          // Total scrollable distance (section height - viewport height)
+          const scrollableDistance = sectionHeight - viewportHeight;
+          
+          // Calculate progress (0 to 1)
+          const progress = Math.max(0, Math.min(1, scrollDistance / scrollableDistance));
+          
+          // Map progress to slide index (0 to caseStudies.length - 1)
+          // Use smooth interpolation for better UX
+          const targetIndex = progress * (caseStudies.length - 1);
+          setSlideIndex(targetIndex);
+        } else if (rect.top > 0) {
+          // Before section - show first slide
+          setSlideIndex(0);
+        } else if (rect.bottom < 0) {
+          // Past section - show last slide
+          setSlideIndex(caseStudies.length - 1);
+        }
       });
     };
 
-    // Initial check
-    checkSectionActive();
-    
     window.addEventListener('scroll', handleScroll, { passive: true });
+    
+    // Initial calculation
+    handleScroll();
     
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      if (isScrollLocked) {
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-        document.body.style.top = '';
-      }
     };
-  }, [isScrollLocked]);
-
-  // Handle wheel and touch events for case study navigation
-  useEffect(() => {
-    const navigateSlide = (direction: 'next' | 'prev') => {
-      setSlideIndex((prev) => {
-        if (direction === 'next') {
-          const next = Math.min(prev + 1, caseStudies.length - 1);
-          
-          // If we've reached the last slide, unlock scrolling after a delay
-          if (next === caseStudies.length - 1 && prev === caseStudies.length - 1) {
-            setTimeout(() => {
-              setIsScrollLocked(false);
-              document.body.style.overflow = '';
-              document.body.style.position = '';
-              document.body.style.width = '';
-              document.body.style.top = '';
-              // Allow page to continue scrolling
-              window.scrollBy(0, 10);
-            }, 300);
-          }
-          return next;
-        } else {
-          const next = Math.max(prev - 1, 0);
-          
-          // If we're at the first slide and scrolling up, unlock
-          if (next === 0 && prev === 0) {
-            setTimeout(() => {
-              setIsScrollLocked(false);
-              document.body.style.overflow = '';
-              document.body.style.position = '';
-              document.body.style.width = '';
-              document.body.style.top = '';
-              // Scroll up to exit the section
-              window.scrollBy(0, -50);
-            }, 300);
-          }
-          return next;
-        }
-      });
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!isScrollLocked || !caseStudyRef.current) return;
-
-      const rect = caseStudyRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const isSectionActive = rect.top <= 0 && rect.bottom >= viewportHeight;
-
-      if (!isSectionActive) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const now = Date.now();
-      const timeSinceLastWheel = now - lastWheelTime.current;
-
-      // Reset accumulated delta if too much time has passed
-      if (timeSinceLastWheel > 1000) {
-        accumulatedDelta.current = 0;
-      }
-
-      accumulatedDelta.current += e.deltaY;
-      lastWheelTime.current = now;
-
-      // Only trigger slide change if threshold is met
-      if (Math.abs(accumulatedDelta.current) >= scrollThreshold) {
-        if (accumulatedDelta.current > 0) {
-          navigateSlide('next');
-        } else {
-          navigateSlide('prev');
-        }
-        accumulatedDelta.current = 0;
-      }
-    };
-
-    // Touch event handlers for mobile
-    let touchStartY = 0;
-    let touchEndY = 0;
-
-    const handleTouchStart = (e: TouchEvent) => {
-      if (!isScrollLocked) return;
-      touchStartY = e.touches[0].clientY;
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isScrollLocked || !caseStudyRef.current) return;
-
-      const rect = caseStudyRef.current.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const isSectionActive = rect.top <= 0 && rect.bottom >= viewportHeight;
-
-      if (!isSectionActive) return;
-
-      e.preventDefault();
-    };
-
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!isScrollLocked) return;
-      touchEndY = e.changedTouches[0].clientY;
-      const swipeDistance = touchStartY - touchEndY;
-      const minSwipeDistance = 50;
-
-      if (Math.abs(swipeDistance) > minSwipeDistance) {
-        if (swipeDistance > 0) {
-          // Swiped up - next slide
-          navigateSlide('next');
-        } else {
-          // Swiped down - previous slide
-          navigateSlide('prev');
-        }
-      }
-    };
-
-    if (isScrollLocked) {
-      window.addEventListener('wheel', handleWheel, { passive: false });
-      window.addEventListener('touchstart', handleTouchStart, { passive: true });
-      window.addEventListener('touchmove', handleTouchMove, { passive: false });
-      window.addEventListener('touchend', handleTouchEnd, { passive: true });
-      
-      return () => {
-        window.removeEventListener('wheel', handleWheel);
-        window.removeEventListener('touchstart', handleTouchStart);
-        window.removeEventListener('touchmove', handleTouchMove);
-        window.removeEventListener('touchend', handleTouchEnd);
-      };
-    }
-  }, [isScrollLocked, caseStudies.length]);
+  }, [caseStudies.length]);
 
   return (
     <div className="min-h-screen bg-[#050505] text-[#EBE9E4] font-sans selection:bg-[#D8C6A5] selection:text-[#080808] overflow-x-hidden">
@@ -382,8 +240,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Horizontal Scroll Case Studies Section with Scroll Lock */}
-        <section id="case-studies" ref={caseStudyRef} className="relative" style={{ height: '100vh', minHeight: '100vh' }}>
+        {/* Horizontal Scroll Case Studies Section */}
+        <section id="case-studies" ref={caseStudyRef} className="relative" style={{ height: '300vh' }}>
           <div className="sticky top-0 h-screen overflow-hidden flex flex-col pt-32">
              
              {/* Header */}
@@ -400,23 +258,28 @@ export default function Home() {
 
              {/* Navigation Indicators */}
              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-               {caseStudies.map((_, index) => (
-                 <button
-                   key={index}
-                   onClick={() => setSlideIndex(index)}
-                   className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                     slideIndex === index
-                       ? 'bg-[#D8C6A5] w-8'
-                       : 'bg-[#333] hover:bg-[#555]'
-                   }`}
-                   aria-label={`Go to case study ${index + 1}`}
-                 />
-               ))}
+               {caseStudies.map((_, index) => {
+                 const isActive = Math.abs(slideIndex - index) < 0.5;
+                 const isNearActive = Math.abs(slideIndex - index) < 1;
+                 return (
+                   <div
+                     key={index}
+                     className={`h-2 rounded-full transition-all duration-300 ${
+                       isActive
+                         ? 'bg-[#D8C6A5] w-8'
+                         : isNearActive
+                         ? 'bg-[#666] w-4'
+                         : 'bg-[#333] w-2'
+                     }`}
+                     aria-label={`Case study ${index + 1}`}
+                   />
+                 );
+               })}
              </div>
 
              {/* Moving Track */}
              <div 
-               className="flex h-full items-center will-change-transform transition-transform duration-700 ease-in-out"
+               className="flex h-full items-center will-change-transform"
                style={{ 
                  transform: `translateX(-${slideIndex * 100}vw)` 
                }}

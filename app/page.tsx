@@ -13,8 +13,9 @@ export default function Home() {
   const [isScrollLocked, setIsScrollLocked] = useState(false);
   const scrollLockPosition = useRef<number>(0);
   const lastScrollY = useRef<number>(0);
-  const scrollCooldown = 400; // ms between scroll events
+  const scrollCooldown = 800; // ms between scroll events (increased for slower effect)
   const lastScrollTime = useRef<number>(0);
+  const isMobile = useRef<boolean>(false);
 
   const caseStudies = [
     {
@@ -40,8 +41,21 @@ export default function Home() {
     }
   ];
 
-  // Scroll lock for case studies (downward scrolling only)
+  // Detect mobile on mount
   useEffect(() => {
+    const checkMobile = () => {
+      isMobile.current = window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Scroll lock for case studies (downward scrolling only, desktop only)
+  useEffect(() => {
+    // Skip scroll lock on mobile
+    if (isMobile.current) return;
+
     const handleScroll = () => {
       requestAnimationFrame(() => {
         const currentScroll = window.scrollY;
@@ -93,8 +107,11 @@ export default function Home() {
     };
   }, [isScrollLocked]);
 
-  // Handle wheel events for step-by-step case study navigation
+  // Handle wheel events for step-by-step case study navigation (desktop only)
   useEffect(() => {
+    // Skip on mobile
+    if (isMobile.current) return;
+
     const handleWheel = (e: WheelEvent) => {
       if (!isScrollLocked || !caseStudyRef.current) return;
 
@@ -153,6 +170,44 @@ export default function Home() {
     }
   }, [isScrollLocked, caseStudies.length]);
 
+  // Scroll-driven animation for mobile (normal vertical scroll)
+  useEffect(() => {
+    if (!isMobile.current) return;
+
+    const handleScroll = () => {
+      requestAnimationFrame(() => {
+        const currentScroll = window.scrollY;
+        setScrollY(currentScroll);
+
+        if (!caseStudyRef.current) return;
+
+        const rect = caseStudyRef.current.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const sectionHeight = rect.height;
+        
+        // Calculate scroll progress through the section
+        if (rect.top <= 0 && rect.bottom >= 0) {
+          const scrollDistance = -rect.top;
+          const scrollableDistance = sectionHeight - viewportHeight;
+          const progress = Math.max(0, Math.min(1, scrollDistance / scrollableDistance));
+          const targetIndex = progress * (caseStudies.length - 1);
+          setSlideIndex(targetIndex);
+        } else if (rect.top > 0) {
+          setSlideIndex(0);
+        } else if (rect.bottom < 0) {
+          setSlideIndex(caseStudies.length - 1);
+        }
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [caseStudies.length]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-[#EBE9E4] font-sans selection:bg-[#D8C6A5] selection:text-[#080808] overflow-x-hidden">
       
@@ -167,20 +222,29 @@ export default function Home() {
       </div>
 
       {/* Navigation */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${scrollY > 50 ? 'bg-[#050505]/80 backdrop-blur-xl border-b border-[#D8C6A5]/10 py-4' : 'bg-transparent py-8'}`}>
-        <div className="container mx-auto px-6 flex justify-between items-center">
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${scrollY > 50 ? 'bg-[#050505]/90 backdrop-blur-xl border-b border-[#D8C6A5]/10 py-4' : 'bg-transparent py-6 md:py-8'}`}>
+        <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16 xl:px-20 flex justify-between items-center">
           <div className="flex items-center gap-3 group cursor-pointer">
-            <div className="w-8 h-8 bg-[#D8C6A5] rounded-sm flex items-center justify-center font-serif text-xl font-bold text-[#080808]">
+            <div className="w-8 h-8 bg-[#D8C6A5] rounded-sm flex items-center justify-center font-serif text-xl font-bold text-[#080808] transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
               D
             </div>
-            <span className="text-xl font-bold tracking-tight group-hover:text-[#D8C6A5] transition-colors">DistroHQ</span>
+            <span className="text-xl font-bold tracking-tight group-hover:text-[#D8C6A5] transition-colors duration-300">DistroHQ</span>
           </div>
           
-          <div className="hidden md:flex items-center gap-10 text-sm font-medium text-[#888]">
-            <a href="#capabilities" className="hover:text-[#D8C6A5] transition-colors">Services</a>
-            <a href="#case-studies" className="hover:text-[#D8C6A5] transition-colors">Curated Work</a>
-            <a href="#pricing" className="hover:text-[#D8C6A5] transition-colors">Pricing</a>
-            <button className="bg-[#D8C6A5] text-[#080808] px-6 py-2.5 rounded-sm font-semibold hover:bg-[#C4B291] transition-colors">
+          <div className="hidden md:flex items-center gap-8 lg:gap-10 text-sm font-medium text-[#888]">
+            <a href="#capabilities" className="hover:text-[#D8C6A5] transition-colors duration-300 relative group">
+              Services
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#D8C6A5] group-hover:w-full transition-all duration-300"></span>
+            </a>
+            <a href="#case-studies" className="hover:text-[#D8C6A5] transition-colors duration-300 relative group">
+              Curated Work
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#D8C6A5] group-hover:w-full transition-all duration-300"></span>
+            </a>
+            <a href="#pricing" className="hover:text-[#D8C6A5] transition-colors duration-300 relative group">
+              Pricing
+              <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-[#D8C6A5] group-hover:w-full transition-all duration-300"></span>
+            </a>
+            <button className="bg-[#D8C6A5] text-[#080808] px-6 py-2.5 rounded-sm font-semibold hover:bg-[#C4B291] transition-all duration-300 hover:scale-105 active:scale-95 shadow-md hover:shadow-lg">
               Start Project
             </button>
           </div>
@@ -207,37 +271,38 @@ export default function Home() {
         </div>
       )}
 
-      <main className="relative z-10 pt-32 pb-20">
+      <main className="relative z-10 pt-40 md:pt-48 pb-20">
         
-        {/* Hero Section with TV Illustration */}
-        <section className="container mx-auto px-6 mb-32 relative">
-          <div className="flex flex-col md:flex-row items-center gap-12">
-            
-            {/* Hero Text */}
-            <div className="md:w-3/5 relative z-10">
-              <h1 className="text-6xl md:text-8xl font-medium leading-[0.95] mb-8 tracking-tight text-[#EBE9E4]">
-                Your Content. <br />
-                <span className="font-serif italic text-[#D8C6A5]">Distributed</span> <span className="border-b-2 border-[#D8C6A5]/30 pb-2">Right.</span>
-              </h1>
+        {/* Hero Section with TV Illustration - Full Width */}
+        <section className="w-full mb-32 md:mb-40 relative">
+          <div className="max-w-7xl mx-auto px-6 md:px-12 lg:px-16 xl:px-20">
+            <div className="flex flex-col lg:flex-row items-center lg:items-start gap-12 lg:gap-16">
               
-              <p className="text-lg md:text-xl text-[#888] leading-relaxed max-w-xl font-light mb-10">
-                DistroHQ is your headquarters for producing, packaging and distributing high-performance content, consistently.
-              </p>
+              {/* Hero Text */}
+              <div className="lg:w-3/5 relative z-10 pt-8 lg:pt-12">
+                <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-medium leading-[0.95] mb-6 md:mb-8 tracking-tight text-[#EBE9E4]">
+                  Your Content. <br />
+                  <span className="font-serif italic text-[#D8C6A5]">Distributed</span> <span className="border-b-2 border-[#D8C6A5]/30 pb-2">Right.</span>
+                </h1>
+                
+                <p className="text-base sm:text-lg md:text-xl text-[#888] leading-relaxed max-w-2xl font-light mb-8 md:mb-12">
+                  DistroHQ is your headquarters for producing, packaging and distributing high-performance content, consistently.
+                </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                <button className="group bg-[#EBE9E4] hover:bg-[#D8C6A5] text-[#080808] px-8 py-4 rounded-sm font-bold transition-all flex items-center justify-center gap-3">
-                  Start Scaling
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+                  <button className="group bg-[#EBE9E4] hover:bg-[#D8C6A5] text-[#080808] px-8 py-4 rounded-sm font-bold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]">
+                    Start Scaling
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Thematic TV Illustration */}
-            <div className="md:w-2/5 flex justify-center md:justify-end relative">
-               {/* Glowing backing */}
-               <div className="absolute inset-0 bg-[#D8C6A5]/10 blur-[60px] rounded-full transform scale-75"></div>
-               
-               <svg width="400" height="340" viewBox="0 0 400 340" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 drop-shadow-2xl" aria-hidden="true">
+              {/* Thematic TV Illustration */}
+              <div className="lg:w-2/5 flex justify-center lg:justify-end relative w-full lg:w-auto">
+                 {/* Glowing backing */}
+                 <div className="absolute inset-0 bg-[#D8C6A5]/10 blur-[60px] rounded-full transform scale-75"></div>
+                 
+                 <svg width="400" height="340" viewBox="0 0 400 340" fill="none" xmlns="http://www.w3.org/2000/svg" className="relative z-10 drop-shadow-2xl w-full max-w-[400px] h-auto" aria-hidden="true">
                   {/* TV Housing */}
                   <rect x="2" y="2" width="396" height="300" rx="40" stroke="#333" strokeWidth="2" fill="#0A0A0A"/>
                   <rect x="15" y="15" width="370" height="274" rx="28" fill="#050505" stroke="#111" strokeWidth="2"/>
@@ -263,7 +328,8 @@ export default function Home() {
                   <path d="M200 2 L 260 -40" stroke="#444" strokeWidth="2"/>
                   <circle cx="140" cy="-40" r="4" fill="#666"/>
                   <circle cx="260" cy="-40" r="4" fill="#666"/>
-               </svg>
+                 </svg>
+              </div>
             </div>
           </div>
         </section>
@@ -311,7 +377,7 @@ export default function Home() {
         </section>
 
         {/* Horizontal Scroll Case Studies Section */}
-        <section id="case-studies" ref={caseStudyRef} className="relative" style={{ height: '100vh' }}>
+        <section id="case-studies" ref={caseStudyRef} className="relative h-screen md:h-screen">
           <div className="sticky top-0 h-screen overflow-hidden flex flex-col pt-32">
              
              {/* Header */}
